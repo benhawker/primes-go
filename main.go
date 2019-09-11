@@ -1,32 +1,63 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 )
 
-const extraPadding = 2
-
-type Series []int
+type Sequence []int
 type Grid map[int][]int
 
 func main() {
-	primes := generatePrimes(10)
-	grid := generateGrid(primes)
-	formatGrid(grid)
+	sequenceGenerator := NewSequenceGenerator("primes", 10)
+	sequence, err := sequenceGenerator.generate()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	gridGenerator := NewGridGenerator(sequence)
+	grid, err := gridGenerator.generateGrid()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	formatter := NewFormatter(grid)
+	formatter.formatGrid()
 }
 
-func generatePrimes(limit int) Series {
-	primes := Series{}
+type SequenceGenerator struct {
+	sequenceType string
+	limit        int
+}
+
+func NewSequenceGenerator(sequenceType string, limit int) *SequenceGenerator {
+	return &SequenceGenerator{sequenceType, limit}
+}
+
+func (sg *SequenceGenerator) generate() (Sequence, error) {
+	switch sg.sequenceType {
+	case "primes":
+		return sg.generatePrimes(), nil
+	case "fibonacci":
+		// return sg.generateFibonacci(), nil
+	}
+
+	return Sequence{}, errors.New("No associated sequence type.")
+}
+
+func (sg *SequenceGenerator) generatePrimes() Sequence {
+	primes := Sequence{}
 	number := 2
 
 	for {
-		if len(primes) == limit {
+		if len(primes) == sg.limit {
 			break
 		}
 
-		if isAPrime(primes, number) == true {
+		if sg.isAPrime(primes, number) == true {
 			primes = append(primes, number)
 		}
 
@@ -36,7 +67,7 @@ func generatePrimes(limit int) Series {
 	return primes
 }
 
-func isAPrime(primes Series, number int) bool {
+func (sg *SequenceGenerator) isAPrime(primes Sequence, number int) bool {
 	for _, prime := range primes {
 		if (number % prime) == 0 {
 			return false
@@ -46,75 +77,106 @@ func isAPrime(primes Series, number int) bool {
 	return true
 }
 
-func generateGrid(series Series) Grid {
+type GridGenerator struct {
+	sequence Sequence
+}
+
+func NewGridGenerator(sequence Sequence) *GridGenerator {
+	return &GridGenerator{sequence}
+}
+
+func (gg *GridGenerator) generateGrid() (Grid, error) {
 	grid := Grid{}
 
 	// Append header row
-	grid[0] = headerRow(series)
+	headerRow, err := gg.headerRow(gg.sequence)
+	if err != nil {
+		return nil, err
+	}
+
+	grid[0] = headerRow
 
 	// Append all other rows
-	for index, _ := range series {
-		grid[index+1] = otherRow(series, index)
-	}
-
-	return grid
-}
-
-func headerRow(series Series) Series {
-	row := append(series[:0:0], series...)
-	row = append(Series{0}, row...)
-	return row
-}
-
-func otherRow(series Series, rowIndex int) Series {
-	row := Series{}
-
-	for colIndex, _ := range series {
-		if colIndex == 0 {
-			row = append(row, series[rowIndex]) // Sidebar values
+	for index, _ := range gg.sequence {
+		otherRow, err := gg.otherRow(gg.sequence, index)
+		if err != nil {
+			return nil, err
 		}
 
-		row = append(row, (series[colIndex] * series[rowIndex]))
+		grid[index+1] = otherRow
 	}
 
-	return row
+	return grid, nil
 }
 
-func formatGrid(grid Grid) {
-	for i := 0; i < len(grid); i++ {
-		formatRow(grid, i)
+// TODO: Return errors
+func (gg *GridGenerator) headerRow(sequence Sequence) (Sequence, error) {
+	row := append(sequence[:0:0], sequence...)
+	row = append(Sequence{0}, row...)
+	return row, nil
+}
+
+// TODO: Return errors
+func (gg *GridGenerator) otherRow(sequence Sequence, rowIndex int) (Sequence, error) {
+	row := Sequence{}
+
+	for colIndex, _ := range sequence {
+		if colIndex == 0 {
+			row = append(row, sequence[rowIndex]) // Sidebar values
+		}
+
+		row = append(row, (sequence[colIndex] * sequence[rowIndex]))
+	}
+
+	return row, nil
+}
+
+const extraPadding = 2
+
+type Formatter struct {
+	Grid         Grid
+	extraPadding int
+}
+
+func NewFormatter(grid Grid) *Formatter {
+	return &Formatter{grid, extraPadding}
+}
+
+func (f *Formatter) formatGrid() {
+	for i := 0; i < len(f.Grid); i++ {
+		f.formatRow(i)
 	}
 }
 
-func formatRow(grid Grid, rowIndex int) {
+func (f *Formatter) formatRow(rowIndex int) {
 	if rowIndex == 1 {
-		fmt.Println(strings.Repeat("-----", len(grid)))
+		fmt.Println(strings.Repeat("-----", len(f.Grid)))
 	}
 
-	row := grid[rowIndex]
+	row := f.Grid[rowIndex]
 
 	for colIndex, number := range row {
 		if colIndex == 1 {
 			fmt.Print("|")
 		}
 
-		formatCell(grid, number, colIndex)
+		f.formatCell(number, colIndex)
 	}
 
 	fmt.Print("\n")
 }
 
-func formatCell(grid Grid, number, colIndex int) {
+func (f *Formatter) formatCell(number, colIndex int) {
 	numberAsString := strconv.Itoa(number)
-	whitespace := strings.Repeat(" ", colWidth(grid, colIndex, len(numberAsString)))
+	whitespace := strings.Repeat(" ", f.colWidth(colIndex, len(numberAsString)))
 	fmt.Print(numberAsString + whitespace)
 }
 
-func colWidth(grid Grid, colIndex, numberOfDigits int) int {
-	return largestWidthForColumn(grid, colIndex) - numberOfDigits + extraPadding
+func (f *Formatter) colWidth(colIndex, numberOfDigits int) int {
+	return f.largestWidthForColumn(colIndex) - numberOfDigits + f.extraPadding
 }
 
-func largestWidthForColumn(grid Grid, colIndex int) int {
-	lastRowIndex := len(grid[colIndex]) - 1
-	return len(strconv.Itoa(grid[colIndex][lastRowIndex]))
+func (f *Formatter) largestWidthForColumn(colIndex int) int {
+	lastRowIndex := len(f.Grid[colIndex]) - 1
+	return len(strconv.Itoa(f.Grid[colIndex][lastRowIndex]))
 }
