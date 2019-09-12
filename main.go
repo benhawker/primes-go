@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"strconv"
@@ -11,8 +12,22 @@ import (
 type Sequence []int
 type Grid map[int][]int
 
+var sequenceType string
+var limit int
+
+const (
+	defaultSequenceType = "primes"
+	defaultLimit        = 10
+)
+
+func init() {
+	flag.StringVar(&sequenceType, "type", defaultSequenceType, "type of sequence (primes or fibonacci)")
+	flag.IntVar(&limit, "limit", defaultLimit, "length of sequence")
+	flag.Parse()
+}
+
 func main() {
-	sequenceGenerator := NewSequenceGenerator("primes", 10)
+	sequenceGenerator := NewSequenceGenerator(sequenceType, limit)
 	sequence, err := sequenceGenerator.generate()
 	if err != nil {
 		log.Fatal(err)
@@ -42,7 +57,7 @@ func (sg *SequenceGenerator) generate() (Sequence, error) {
 	case "primes":
 		return sg.generatePrimes(), nil
 	case "fibonacci":
-		// return sg.generateFibonacci(), nil
+		return sg.generateFibonacci(), nil
 	}
 
 	return Sequence{}, errors.New("No associated sequence type.")
@@ -75,6 +90,22 @@ func (sg *SequenceGenerator) isAPrime(primes Sequence, number int) bool {
 	}
 
 	return true
+}
+
+func (sg *SequenceGenerator) generateFibonacci() Sequence {
+	seq := Sequence{1, 1}
+
+	for i := 1; i < 5; i++ {
+		seq = append(seq, sg.sumOfLastTwoElements(seq))
+	}
+
+	return seq
+}
+
+func (sg *SequenceGenerator) sumOfLastTwoElements(seq Sequence) int {
+	length := len(seq)
+
+	return seq[length-1] + seq[length-2]
 }
 
 type GridGenerator struct {
