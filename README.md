@@ -1,12 +1,19 @@
-# Prime Generator
+# Sequence Generator
 
-A Go program that generates prime numbers and prints them in the terminal.
+A Go program that generates sequences of numbers and prints them in the terminal.
 
 ### Usage:
 
 ```
 $ go run main.go
 ```
+
+...with flags:
+
+```
+go run main.go --type=primes --limit=10
+```
+
 
 Sample output:
 ```
